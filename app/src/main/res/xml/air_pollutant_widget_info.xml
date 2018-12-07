@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.romif.hackair.AirPollutantWidgetConfigureActivity"
+    android:initialLayout="@layout/air_pollutant_widget"
+    android:minWidth="120dp"
+    android:minHeight="40dp"
+    android:previewImage="@drawable/appwidget_preview"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="1800000"/>

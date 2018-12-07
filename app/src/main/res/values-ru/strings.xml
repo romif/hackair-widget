@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">hackair widget</string>
+    <string name="pm2_5_avg_format">PM 2.5 = %.1f мкг/м3</string>
+    <string name="very_good">Очень хорошо</string>
+    <string name="good">Хорошо</string>
+    <string name="medium">Средне</string>
+    <string name="bad">Плохо</string>
+    <string name="configure">Выберите локацию</string>
+    <string name="add_widget">Добавить виджет</string>
+    <string name="error_get_locations">Ошибка загрузки локаций</string>
+    <string name="error_parse_locations">Ошибка загрузки локаций</string>
+</resources>
