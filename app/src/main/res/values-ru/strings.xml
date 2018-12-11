@@ -10,4 +10,6 @@
     <string name="add_widget">Добавить виджет</string>
     <string name="error_get_locations">Ошибка загрузки локаций</string>
     <string name="error_parse_locations">Ошибка загрузки локаций</string>
+    <string name="last_update">Последнее обновление: %1$tT</string>
+    <string name="mpc">" (%.1f ПДК)"</string>
 </resources>

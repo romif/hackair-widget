@@ -1,0 +1,32 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/light_quality_appwidget"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="@dimen/widget_margin">
+
+    <TextView
+        android:id="@+id/appwidget_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/good"
+        android:textAllCaps="false"
+        android:textColor="@android:color/holo_green_dark"
+        android:textSize="18sp"
+        android:textStyle="bold|italic" />
+
+    <ImageView
+        android:id="@+id/imageTrend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginLeft="4dp"
+        android:scaleType="fitXY"
+        android:src="@drawable/ic_arrow_down"
+        android:tint="@android:color/black"
+        app:srcCompat="@drawable/ic_arrow_up"
+        tools:srcCompat="@drawable/ic_arrow_up" />
+
+</LinearLayout>

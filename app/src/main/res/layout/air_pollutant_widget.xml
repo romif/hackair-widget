@@ -1,30 +1,76 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/full_appwidget"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="@dimen/widget_margin"
-    android:orientation="vertical"
-    android:id="@+id/appwidget">
+    android:layout_height="match_parent">
 
     <TextView
         android:id="@+id/appwidget_text"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginStart="4dp"
+        android:layout_marginLeft="4dp"
+        android:layout_marginTop="0dp"
+        android:gravity="bottom"
         android:text="@string/pm2_5_avg_format"
-        android:textColor="#ffffff"
+        android:textAllCaps="false"
+        android:textColor="@android:color/black"
         android:textSize="18sp"
-        android:textStyle="italic"
-        android:gravity="bottom"/>
+        android:textStyle="bold|italic" />
 
     <TextView
         android:id="@+id/appwidget_quality"
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/appwidget_text"
+        android:layout_alignStart="@id/appwidget_text"
+        android:layout_alignLeft="@id/appwidget_text"
+        android:gravity="top"
         android:text="@string/good"
-        android:textColor="#ffffff"
-        android:textSize="18sp"
-        android:textStyle="italic"
-        android:gravity="top"/>
+        android:textColor="@android:color/black"
+        android:textSize="14sp"
+        android:textStyle="italic" />
 
-</LinearLayout>
+    <TextView
+        android:id="@+id/appwidget_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/appwidget_quality"
+        android:layout_alignStart="@id/appwidget_text"
+        android:layout_alignLeft="@id/appwidget_text"
+        android:gravity="bottom"
+        android:text="Address, Address, Address, Address, Address, Address"
+        android:textColor="@android:color/black"
+        android:textSize="10sp"
+        android:textStyle="italic" />
+
+    <TextView
+        android:id="@+id/appwidget_lastupdate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/appwidget_location"
+        android:layout_alignStart="@id/appwidget_text"
+        android:layout_alignLeft="@id/appwidget_text"
+        android:gravity="bottom"
+        android:text="@string/last_update"
+        android:textColor="@android:color/black"
+        android:textSize="10sp"
+        android:textStyle="italic" />
+
+    <ImageView
+        android:id="@+id/imageTrend"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@+id/appwidget_quality"
+        android:layout_marginStart="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_toEndOf="@+id/appwidget_quality"
+        android:layout_toRightOf="@+id/appwidget_quality"
+        android:src="@drawable/ic_arrow_up"
+        tools:src="@drawable/ic_arrow_up" />
+
+
+</RelativeLayout>

@@ -1,10 +1,12 @@
 <resources>
     <string name="app_name">hackair widget</string>
     <string name="pm2_5_avg_format">PM 2.5 = %.1f μg/m3</string>
+    <string name="avg_format" translatable="false">%.1f</string>
     <string name="very_good">Very Good</string>
     <string name="good">Good</string>
     <string name="medium">Medium</string>
     <string name="bad">Bad</string>
+    <string name="mpc"> (%.1f MPC)</string>
     <string name="configure">Select Location</string>
     <string name="add_widget">Add widget</string>
     <string name="service_not_available" translatable="false">No geocoder available</string>
@@ -13,4 +15,5 @@
     <string name="address_found" translatable="false">Address found</string>
     <string name="error_get_locations">Can\'t load locations</string>
     <string name="error_parse_locations">Can\'t load locations</string>
+    <string name="last_update">Last update: %1$tT</string>
 </resources>
