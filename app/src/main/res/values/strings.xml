@@ -16,5 +16,6 @@
     <string name="error_get_locations">Can\'t load locations</string>
     <string name="error_parse_locations">Can\'t load locations</string>
     <string name="last_update">Last update: %1$tT</string>
+    <string name="time_format" translatable="false">%1$tT</string>
     <string name="error_fetching_pollutant_data">Error while fetching data</string>
 </resources>

@@ -145,7 +145,7 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
     public static class AirPollutantFullWidget extends AirPollutantWidget {
 
         static void updateAppWidget(final Context context, final AppWidgetManager appWidgetManager, final int appWidgetId) {
-            final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.air_pollutant_widget);
+            final RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.air_pollutant_full_widget);
 
             Intent launchActivity = new Intent(context, AirPollutantWidgetConfigureActivity.AirPollutantFullWidgetConfigureActivity.class);
             launchActivity.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
@@ -220,7 +220,9 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
                     }
                     views.setTextViewText(R.id.appwidget_text, context.getString(R.string.avg_format, avgValue.first));
                     int color = getColor(avgValue.first);
+                    views.setTextViewText(R.id.appwidget_lastupdate, context.getString(R.string.time_format, new Date()));
                     views.setTextColor(R.id.appwidget_text, color);
+                    views.setTextColor(R.id.appwidget_lastupdate, color);
 
                     if (avgValue.second > 0) {
                         views.setImageViewResource(R.id.imageTrend, R.drawable.ic_arrow_up);
@@ -268,7 +270,9 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
                     int color = getColor(avgValue.first);
                     String quality = getQuality(avgValue.first, context);
                     views.setTextViewText(R.id.appwidget_text, quality);
+                    views.setTextViewText(R.id.appwidget_lastupdate, context.getString(R.string.last_update, new Date()));
                     views.setTextColor(R.id.appwidget_text, color);
+                    views.setTextColor(R.id.appwidget_lastupdate, color);
 
                     if (avgValue.second > 0) {
                         views.setImageViewResource(R.id.imageTrend, R.drawable.ic_arrow_up);
