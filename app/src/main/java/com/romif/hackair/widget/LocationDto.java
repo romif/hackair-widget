@@ -1,4 +1,6 @@
-package com.romif.hackair;
+package com.romif.hackair.widget;
+
+import android.location.Location;
 
 public class LocationDto {
 
@@ -61,5 +63,12 @@ public class LocationDto {
         temp = Double.doubleToLongBits(latitude);
         result = 31 * result + (int) (temp ^ (temp >>> 32));
         return result;
+    }
+
+    public double distanceTo(Location to) {
+        Location location = new Location("");
+        location.setLatitude(getLatitude());
+        location.setLongitude(getLongitude());
+        return location.distanceTo(to);
     }
 }

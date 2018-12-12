@@ -1,10 +1,11 @@
-package com.romif.hackair;
+package com.romif.hackair.widget;
 
 import android.Manifest;
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -26,9 +27,19 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.LocationSettingsStates;
+import com.google.android.gms.location.LocationSettingsStatusCodes;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -44,8 +55,9 @@ import java.util.TimeZone;
 
 public abstract class AirPollutantWidgetConfigureActivity extends Activity {
 
-    protected static final String PREFS_NAME = "com.romif.hackair.AirPollutantWidget";
     public static final String PREF_PREFIX_KEY = "appwidget_";
+    protected static final String PREFS_NAME = "com.romif.hackair.widget.AirPollutantWidget";
+    protected static final int REQUEST_CHECK_SETTINGS = 0x1;
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
     private static final int MAX_LOCATIONS = 10;
     int mAppWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
@@ -70,12 +82,9 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
             finish();
         }
     };
-
-    protected abstract void updateWidget(Context context, AppWidgetManager appWidgetManager);
-
     private AddressResultReceiver mResultReceiver;
-
     private Location coarseLocation = new Location("");
+    private LocationRequest locationRequest;
 
     public AirPollutantWidgetConfigureActivity() {
         super();
@@ -117,6 +126,8 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
         }
     }
 
+    protected abstract void updateWidget(Context context, AppWidgetManager appWidgetManager);
+
     protected void startIntentService(Location mLastLocation) {
         Intent intent = new Intent(this, FetchAddressIntentService.class);
         intent.putExtra(Constants.RECEIVER, mResultReceiver);
@@ -151,17 +162,93 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
             return;
         }
 
+        locationRequest = LocationRequest.create();
+        locationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        locationRequest.setInterval(30 * 1000);
+        locationRequest.setFastestInterval(5 * 1000);
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 999);
             return;
         }
-        mFusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
+
+        runLocationSettingsTask();
+    }
+
+    private void runLocationSettingsTask() {
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+        builder.setAlwaysShow(true);
+
+        Task<LocationSettingsResponse> task = LocationServices.getSettingsClient(this).checkLocationSettings(builder.build());
+
+        task.addOnCompleteListener(new OnCompleteListener<LocationSettingsResponse>() {
             @Override
-            public void onSuccess(final Location coarseLocation) {
-                AirPollutantWidgetConfigureActivity.this.coarseLocation = coarseLocation;
-                fillLocations();
+            public void onComplete(Task<LocationSettingsResponse> task) {
+                try {
+                    LocationSettingsResponse response = task.getResult(ApiException.class);
+                    startUpdateLocation();
+                } catch (ApiException exception) {
+                    switch (exception.getStatusCode()) {
+                        case LocationSettingsStatusCodes.RESOLUTION_REQUIRED:
+                            try {
+                                ResolvableApiException resolvable = (ResolvableApiException) exception;
+                                resolvable.startResolutionForResult(AirPollutantWidgetConfigureActivity.this, REQUEST_CHECK_SETTINGS);
+                            } catch (IntentSender.SendIntentException e) {
+                                // Ignore the error.
+                            } catch (ClassCastException e) {
+                                // Ignore, should be an impossible error.
+                            }
+                            break;
+                        case LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE:
+                            fillLocations();
+                            break;
+                    }
+                }
             }
         });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        final LocationSettingsStates states = LocationSettingsStates.fromIntent(data);
+        switch (requestCode) {
+            case REQUEST_CHECK_SETTINGS:
+                switch (resultCode) {
+                    case Activity.RESULT_OK:
+                        startUpdateLocation();
+                        break;
+                    case Activity.RESULT_CANCELED:
+                        fillLocations();
+                        break;
+                    default:
+                        break;
+                }
+                break;
+        }
+    }
+
+    private void startUpdateLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        mFusedLocationClient.requestLocationUpdates(locationRequest,
+                new LocationCallback() {
+                    @Override
+                    public void onLocationResult(LocationResult locationResult) {
+                        if (locationResult == null) {
+                            return;
+                        }
+                        for (Location location : locationResult.getLocations()) {
+                            if (location != null) {
+                                AirPollutantWidgetConfigureActivity.this.coarseLocation = location;
+                                mFusedLocationClient.removeLocationUpdates(this);
+                                fillLocations();
+                                break;
+                            }
+                        }
+                    }
+                },
+                null /* Looper */);
     }
 
     private void fillLocations() {
@@ -242,61 +329,7 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
                 fillLocations();
                 return;
             }
-            mFusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                @Override
-                public void onSuccess(final Location coarseLocation) {
-                    AirPollutantWidgetConfigureActivity.this.coarseLocation = coarseLocation;
-                    fillLocations();
-                }
-            });
-        }
-    }
-
-    class AddressResultReceiver extends ResultReceiver {
-
-        public AddressResultReceiver(Handler handler) {
-            super(handler);
-        }
-
-        @Override
-        protected void onReceiveResult(int resultCode, Bundle resultData) {
-
-            if (resultData == null) {
-                return;
-            }
-
-            String mAddressOutput = resultData.getString(Constants.RESULT_DATA_KEY);
-            if (mAddressOutput == null) {
-                mAddressOutput = "";
-            }
-
-            Location location = resultData.getParcelable(Constants.LOCATION_DATA_EXTRA);
-
-            ArrayAdapter<LocationDto> adapter = (ArrayAdapter<LocationDto>) spinnerLocations.getAdapter();
-
-            adapter.sort(new Comparator<LocationDto>() {
-                @Override
-                public int compare(LocationDto o1, LocationDto o2) {
-                    double delta1 = Math.abs(coarseLocation.getLatitude() - o1.getLatitude()) + Math.abs(coarseLocation.getLongitude() - o1.getLongitude());
-                    double delta2 = Math.abs(coarseLocation.getLatitude() - o2.getLatitude()) + Math.abs(coarseLocation.getLongitude() - o2.getLongitude());
-                    return Double.compare(delta1, delta2);
-                }
-            });
-
-            if (resultCode == Constants.SUCCESS_RESULT) {
-                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), mAddressOutput));
-            } else {
-                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), location.getLongitude() + ", " + location.getLatitude()));
-            }
-
-            findViewById(R.id.progressBar).setVisibility(View.GONE);
-            findViewById(R.id.add_button).setEnabled(true);
-
-            LocationDto selectedLocationDto = loadLocationPref(AirPollutantWidgetConfigureActivity.this, mAppWidgetId);
-            if (selectedLocationDto != null) {
-                selectSpinnerItemByValue(spinnerLocations, selectedLocationDto);
-            }
-
+            runLocationSettingsTask();
         }
     }
 
@@ -333,6 +366,52 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
         @Override
         protected void updateWidget(Context context, AppWidgetManager appWidgetManager) {
             AirPollutantWidget.AirPollutantLightQualityWidget.updateAppWidget(context, appWidgetManager, mAppWidgetId);
+        }
+    }
+
+    class AddressResultReceiver extends ResultReceiver {
+
+        public AddressResultReceiver(Handler handler) {
+            super(handler);
+        }
+
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+
+            if (resultData == null) {
+                return;
+            }
+
+            String mAddressOutput = resultData.getString(Constants.RESULT_DATA_KEY);
+            if (mAddressOutput == null) {
+                mAddressOutput = "";
+            }
+
+            Location location = resultData.getParcelable(Constants.LOCATION_DATA_EXTRA);
+
+            ArrayAdapter<LocationDto> adapter = (ArrayAdapter<LocationDto>) spinnerLocations.getAdapter();
+
+            if (resultCode == Constants.SUCCESS_RESULT) {
+                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), mAddressOutput));
+            } else {
+                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), location.getLongitude() + ", " + location.getLatitude()));
+            }
+
+            adapter.sort(new Comparator<LocationDto>() {
+                @Override
+                public int compare(LocationDto o1, LocationDto o2) {
+                    return Double.compare(o1.distanceTo(coarseLocation), o2.distanceTo(coarseLocation));
+                }
+            });
+
+            findViewById(R.id.progressBar).setVisibility(View.GONE);
+            findViewById(R.id.add_button).setEnabled(true);
+
+            LocationDto selectedLocationDto = loadLocationPref(AirPollutantWidgetConfigureActivity.this, mAppWidgetId);
+            if (selectedLocationDto != null) {
+                selectSpinnerItemByValue(spinnerLocations, selectedLocationDto);
+            }
+
         }
     }
 }

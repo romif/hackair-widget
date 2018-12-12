@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "437728699772",
+    "firebase_url": "https://hackair-widget.firebaseio.com",
+    "project_id": "hackair-widget",
+    "storage_bucket": "hackair-widget.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:437728699772:android:a28f076b53b17c4c",
+        "android_client_info": {
+          "package_name": "com.romif.hackair.widget"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "437728699772-jk3is90s99281gmih0mgtd502o16h7o0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.romif.hackair.widget",
+            "certificate_hash": "a09b50fc1657df93b205d3703af8ace6746e5e73"
+          }
+        },
+        {
+          "client_id": "437728699772-kbbmig1qb86foo7krgm7mmkhi34obdcg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqYiLYR3aiLd1Lvoo74uCAPpIEzw7VzP4"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "437728699772-kbbmig1qb86foo7krgm7mmkhi34obdcg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

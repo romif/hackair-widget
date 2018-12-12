@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:configure="com.romif.hackair.AirPollutantWidgetConfigureActivity$AirPollutantLightQualityWidgetConfigureActivity"
+    android:configure="com.romif.hackair.widget.AirPollutantWidgetConfigureActivity$AirPollutantLightQualityWidgetConfigureActivity"
     android:initialLayout="@layout/air_pollutant_light_quality_widget"
     android:minWidth="120dp"
     android:minHeight="40dp"

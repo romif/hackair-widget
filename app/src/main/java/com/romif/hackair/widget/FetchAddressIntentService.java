@@ -1,4 +1,4 @@
-package com.romif.hackair;
+package com.romif.hackair.widget;
 
 import android.app.IntentService;
 import android.content.Intent;
@@ -68,7 +68,7 @@ public class FetchAddressIntentService extends IntentService {
         }
 
         // Handle case where no address was found.
-        if (addresses == null || addresses.size()  == 0) {
+        if (addresses == null || addresses.size() == 0) {
             if (errorMessage.isEmpty()) {
                 errorMessage = getString(R.string.no_address_found);
                 Log.e(TAG, errorMessage);
@@ -80,7 +80,7 @@ public class FetchAddressIntentService extends IntentService {
 
             // Fetch the address lines using getAddressLine,
             // join them, and send them to the thread.
-            for(int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
+            for (int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
                 addressFragments.add(address.getAddressLine(i));
             }
             Log.i(TAG, getString(R.string.address_found));
@@ -96,8 +96,6 @@ public class FetchAddressIntentService extends IntentService {
         bundle.putParcelable(Constants.LOCATION_DATA_EXTRA, location);
         mReceiver.send(resultCode, bundle);
     }
-
-
 
 
 }
