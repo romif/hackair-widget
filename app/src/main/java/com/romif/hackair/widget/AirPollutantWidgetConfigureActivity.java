@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ResultReceiver;
@@ -307,6 +308,16 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
                 } catch (JSONException e) {
                     Toast.makeText(AirPollutantWidgetConfigureActivity.this, R.string.error_parse_locations, Toast.LENGTH_SHORT).show();
                     Log.e("AirPollutantFullWidget", e.getLocalizedMessage(), e);
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                AirPollutantWidgetConfigureActivity.this.finishAndRemoveTask();
+                            } else {
+                                AirPollutantWidgetConfigureActivity.this.finish();
+                            }
+                        }
+                    }, 3000);
                 }
             }
         }, new Response.ErrorListener() {
@@ -315,6 +326,16 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
             public void onErrorResponse(VolleyError error) {
                 Toast.makeText(AirPollutantWidgetConfigureActivity.this, R.string.error_get_locations, Toast.LENGTH_SHORT).show();
                 Log.e("AirPollutantWidgetConf", error.getLocalizedMessage(), error);
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            AirPollutantWidgetConfigureActivity.this.finishAndRemoveTask();
+                        } else {
+                            AirPollutantWidgetConfigureActivity.this.finish();
+                        }
+                    }
+                }, 3000);
             }
         });
 

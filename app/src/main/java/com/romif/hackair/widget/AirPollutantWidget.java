@@ -8,17 +8,21 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Bundle;
 import android.support.v4.util.Consumer;
 import android.support.v4.util.Pair;
 import android.util.Log;
 import android.widget.RemoteViews;
 
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.crashlytics.android.Crashlytics;
+import com.google.firebase.analytics.FirebaseAnalytics;
 
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
@@ -31,7 +35,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
 
-import static com.romif.hackair.widget.AirPollutantWidgetConfigureActivity.PREFS_NAME;
 import static com.romif.hackair.widget.AirPollutantWidgetConfigureActivity.PREF_PREFIX_KEY;
 
 public abstract class AirPollutantWidget extends AppWidgetProvider {
@@ -52,6 +55,8 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
 
         Calendar from = Calendar.getInstance();
         from.add(Calendar.MINUTE, -60);
+
+        final FirebaseAnalytics mFirebaseAnalytics = FirebaseAnalytics.getInstance(context);
 
         Uri.Builder builder = new Uri.Builder();
         double delta = 0.00001;
@@ -82,40 +87,32 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
                     Double slope = simpleRegression.getSlope();
                     double mean = stats.getMean();
                     pollutantConsumer.accept(Pair.create(mean, slope));
-
-                    SharedPreferences.Editor editor = context.getSharedPreferences(PREFS_NAME, 0).edit();
-                    editor.putInt(PREF_PREFIX_KEY + appWidgetId + "_attemptsNumber", 0);
-                    editor.apply();
-
                 } catch (JSONException e) {
-                    handleError(e, context, appWidgetId, pollutantConsumer);
+                    Log.e("AirPollutantFullWidget", e.getLocalizedMessage(), e);
+                    log("getPollutant", e, mFirebaseAnalytics);
+                    pollutantConsumer.accept(null);
                 }
             }
         }, new Response.ErrorListener() {
 
             @Override
             public void onErrorResponse(VolleyError error) {
-                handleError(error, context, appWidgetId, pollutantConsumer);
+                Log.e("AirPollutantFullWidget", error.getLocalizedMessage(), error);
+                log("getPollutant", error, mFirebaseAnalytics);
+                pollutantConsumer.accept(null);
             }
         });
+
+        jsonObjectRequest.setRetryPolicy(new DefaultRetryPolicy(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS, 10, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
         queue.add(jsonObjectRequest);
     }
 
-    private static void handleError(Exception error, Context context, int appWidgetId, Consumer<Pair<Double, Double>> pollutantConsumer) {
-        Log.e("AirPollutantFullWidget", error.getLocalizedMessage(), error);
-        final SharedPreferences prefs = context.getSharedPreferences(AirPollutantWidgetConfigureActivity.PREFS_NAME, 0);
-        int attemptsNumber = prefs.getInt(PREF_PREFIX_KEY + appWidgetId + "_attemptsNumber", 0);
-        SharedPreferences.Editor editor = context.getSharedPreferences(PREFS_NAME, 0).edit();
-        if (attemptsNumber < 3) {
-            editor.putInt(PREF_PREFIX_KEY + appWidgetId + "_attemptsNumber", ++attemptsNumber);
-            editor.apply();
-            getPollutant(context, appWidgetId, pollutantConsumer);
-        } else {
-            editor.putInt(PREF_PREFIX_KEY + appWidgetId + "_attemptsNumber", 0);
-            editor.apply();
-            pollutantConsumer.accept(null);
-        }
+    private static void log(String event, Throwable throwable, FirebaseAnalytics mFirebaseAnalytics) {
+        Bundle params = new Bundle();
+        params.putString("error", throwable.getLocalizedMessage() != null ? throwable.getLocalizedMessage().substring(Math.min(throwable.getLocalizedMessage().length(), 100)) : "");
+        mFirebaseAnalytics.logEvent(event, params);
+        Crashlytics.logException(throwable);
     }
 
     private static String getQuality(Double avgValue, Context context) {
