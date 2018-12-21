@@ -26,7 +26,7 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.ResolvableApiException;
@@ -44,7 +44,6 @@ import com.google.android.gms.tasks.Task;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -86,6 +85,7 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
     private AddressResultReceiver mResultReceiver;
     private Location coarseLocation = new Location("");
     private LocationRequest locationRequest;
+    private List<LocationDto> locationSet = new ArrayList<>();
 
     public AirPollutantWidgetConfigureActivity() {
         super();
@@ -97,6 +97,8 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
         prefs.putFloat(PREF_PREFIX_KEY + appWidgetId + "_longitude", Double.valueOf(locationDto.getLongitude()).floatValue());
         prefs.putFloat(PREF_PREFIX_KEY + appWidgetId + "_latitude", Double.valueOf(locationDto.getLatitude()).floatValue());
         prefs.putString(PREF_PREFIX_KEY + appWidgetId + "_address", locationDto.getAddress());
+        prefs.putString(PREF_PREFIX_KEY + appWidgetId + "_senseBoxId", locationDto.getSenseBoxId());
+        prefs.putString(PREF_PREFIX_KEY + appWidgetId + "_sensorId", locationDto.getSensorId());
         prefs.apply();
     }
 
@@ -129,7 +131,7 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
 
     protected abstract void updateWidget(Context context, AppWidgetManager appWidgetManager);
 
-    protected void startIntentService(Location mLastLocation) {
+    protected void startIntentService(LocationDto mLastLocation) {
         Intent intent = new Intent(this, FetchAddressIntentService.class);
         intent.putExtra(Constants.RECEIVER, mResultReceiver);
         intent.putExtra(Constants.LOCATION_DATA_EXTRA, mLastLocation);
@@ -260,44 +262,56 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
         from.add(Calendar.MINUTE, -60);
         Uri.Builder builder = new Uri.Builder();
         builder.scheme("https")
-                .authority("api.hackair.eu")
-                .appendPath("measurements")
-                .appendQueryParameter("timestampStart", DATE_FORMAT.format(from.getTime()))
-                .appendQueryParameter("pollutant", "pm2.5")
-                .appendQueryParameter("show", "latest");
+                .authority("api.opensensemap.org")
+                .appendPath("boxes")
+                .appendQueryParameter("minimal", "false");
         if (coarseLocation != null && coarseLocation.getLatitude() > 0 && coarseLocation.getLongitude() > 0) {
-            builder.appendQueryParameter("location", (coarseLocation.getLongitude() - 20) + "," + (coarseLocation.getLatitude() - 20) + "|" + (coarseLocation.getLongitude() + 20) + "," + (coarseLocation.getLatitude() + 20));
+            int delta = 10;
+            builder.appendQueryParameter("bbox", (coarseLocation.getLongitude() - delta) + "," + (coarseLocation.getLatitude() - delta) + "," + (coarseLocation.getLongitude() + delta) + "," + (coarseLocation.getLatitude() + delta));
         }
         String url = builder.build().toString();
         RequestQueue queue = Volley.newRequestQueue(AirPollutantWidgetConfigureActivity.this);
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
+        JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null, new Response.Listener<JSONArray>() {
 
             @Override
-            public void onResponse(JSONObject response) {
+            public void onResponse(JSONArray response) {
                 try {
-                    JSONArray data = response.getJSONArray("data");
-                    List<Location> locationSet = new ArrayList<>();
-                    for (int i = 0; i < data.length(); i++) {
-                        if (!"Point".equals(data.getJSONObject(i).getJSONObject("loc").getString("type"))) {
+                    for (int i = 0; i < response.length(); i++) {
+                        LocationDto locationDto = new LocationDto();
+                        if (!"Point".equals(response.getJSONObject(i).getJSONObject("currentLocation").getString("type"))) {
                             continue;
                         }
-                        JSONArray coordinates = data.getJSONObject(i).getJSONObject("loc").getJSONArray("coordinates");
+                        JSONArray sensors = response.getJSONObject(i).getJSONArray("sensors");
+                        for (int j = 0; j < sensors.length(); j++) {
+                            String title = sensors.getJSONObject(j).getString("title");
+                            if (title != null && title.toLowerCase().contains("pm2.5")) {
+                                locationDto.setSensorId(sensors.getJSONObject(j).getString("_id"));
+                                break;
+                            }
+                        }
+                        if (locationDto.getSensorId() == null) {
+                            continue;
+                        }
+                        locationDto.setSenseBoxId(response.getJSONObject(i).getString("_id"));
+                        JSONArray coordinates = response.getJSONObject(i).getJSONObject("currentLocation").getJSONArray("coordinates");
                         double longitude = coordinates.getDouble(0);
                         double latitude = coordinates.getDouble(1);
-                        Location location = new Location("");
-                        location.setLatitude(latitude);
-                        location.setLongitude(longitude);
-                        locationSet.add(location);
+                        locationDto.setLatitude(latitude);
+                        locationDto.setLongitude(longitude);
+                        locationSet.add(locationDto);
                     }
-                    Collections.sort(locationSet, new Comparator<Location>() {
+                    Collections.sort(locationSet, new Comparator<LocationDto>() {
                         @Override
-                        public int compare(Location o1, Location o2) {
+                        public int compare(LocationDto o1, LocationDto o2) {
                             return Double.compare(o1.distanceTo(coarseLocation), o2.distanceTo(coarseLocation));
                         }
                     });
                     for (int i = 0; i < Math.min(locationSet.size(), MAX_LOCATIONS); i++) {
-                        Location location = locationSet.get(i);
-                        startIntentService(location);
+                        LocationDto locationDto = locationSet.get(i);
+                        Location location = new Location("");
+                        location.setLatitude(locationDto.getLatitude());
+                        location.setLongitude(locationDto.getLongitude());
+                        startIntentService(locationDto);
                     }
 
                     ArrayAdapter<LocationDto> adapter = new ArrayAdapter<>(AirPollutantWidgetConfigureActivity.this, android.R.layout.simple_spinner_item, new ArrayList<LocationDto>());
@@ -403,20 +417,9 @@ public abstract class AirPollutantWidgetConfigureActivity extends Activity {
                 return;
             }
 
-            String mAddressOutput = resultData.getString(Constants.RESULT_DATA_KEY);
-            if (mAddressOutput == null) {
-                mAddressOutput = "";
-            }
-
-            Location location = resultData.getParcelable(Constants.LOCATION_DATA_EXTRA);
-
             ArrayAdapter<LocationDto> adapter = (ArrayAdapter<LocationDto>) spinnerLocations.getAdapter();
-
-            if (resultCode == Constants.SUCCESS_RESULT) {
-                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), mAddressOutput));
-            } else {
-                adapter.add(new LocationDto(location.getLongitude(), location.getLatitude(), location.getLongitude() + ", " + location.getLatitude()));
-            }
+            LocationDto location = resultData.getParcelable(Constants.LOCATION_DATA_EXTRA);
+            adapter.add(location);
 
             adapter.sort(new Comparator<LocationDto>() {
                 @Override

@@ -4,7 +4,6 @@ import android.app.IntentService;
 import android.content.Intent;
 import android.location.Address;
 import android.location.Geocoder;
-import android.location.Location;
 import android.os.Bundle;
 import android.os.ResultReceiver;
 import android.text.TextUtils;
@@ -42,7 +41,7 @@ public class FetchAddressIntentService extends IntentService {
         Geocoder geocoder = new Geocoder(this, Locale.getDefault());
 
         // Get the location passed to this service through an extra.
-        Location location = intent.getParcelableExtra(Constants.LOCATION_DATA_EXTRA);
+        LocationDto location = intent.getParcelableExtra(Constants.LOCATION_DATA_EXTRA);
 
         mReceiver = intent.getParcelableExtra(Constants.RECEIVER);
 
@@ -90,8 +89,13 @@ public class FetchAddressIntentService extends IntentService {
         }
     }
 
-    private void deliverResultToReceiver(int resultCode, String message, Location location) {
+    private void deliverResultToReceiver(int resultCode, String message, LocationDto location) {
         Bundle bundle = new Bundle();
+        if (resultCode == Constants.SUCCESS_RESULT && message != null && !message.equals("")) {
+            location.setAddress(message);
+        } else {
+            location.setAddress(location.getLongitude() + ", " + location.getLatitude());
+        }
         bundle.putString(Constants.RESULT_DATA_KEY, message);
         bundle.putParcelable(Constants.LOCATION_DATA_EXTRA, location);
         mReceiver.send(resultCode, bundle);

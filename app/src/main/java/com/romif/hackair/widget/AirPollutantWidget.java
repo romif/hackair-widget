@@ -19,7 +19,7 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.JsonArrayRequest;
 import com.android.volley.toolbox.Volley;
 import com.crashlytics.android.Crashlytics;
 import com.google.firebase.analytics.FirebaseAnalytics;
@@ -28,8 +28,8 @@ import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -44,13 +44,16 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
         float longitude = prefs.getFloat(PREF_PREFIX_KEY + appWidgetId + "_longitude", 0f);
         float latitude = prefs.getFloat(PREF_PREFIX_KEY + appWidgetId + "_latitude", 0f);
         String address = prefs.getString(PREF_PREFIX_KEY + appWidgetId + "_address", "");
-        return new LocationDto(longitude, latitude, address);
+        LocationDto locationDto = new LocationDto(longitude, latitude, address);
+        locationDto.setSenseBoxId(prefs.getString(PREF_PREFIX_KEY + appWidgetId + "_senseBoxId", ""));
+        locationDto.setSensorId(prefs.getString(PREF_PREFIX_KEY + appWidgetId + "_sensorId", ""));
+        return locationDto;
     }
 
     private static void getPollutant(final Context context, final int appWidgetId, final Consumer<Pair<Double, Double>> pollutantConsumer) {
         LocationDto locationDto = getLocationDto(context, appWidgetId);
         TimeZone tz = TimeZone.getTimeZone("MSK");
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'");
+        final SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
         df.setTimeZone(tz);
 
         Calendar from = Calendar.getInstance();
@@ -59,36 +62,34 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
         final FirebaseAnalytics mFirebaseAnalytics = FirebaseAnalytics.getInstance(context);
 
         Uri.Builder builder = new Uri.Builder();
-        double delta = 0.00001;
         builder.scheme("https")
-                .authority("api.hackair.eu")
-                .appendPath("measurements")
-                .appendQueryParameter("location", (locationDto.getLongitude() - delta) + "," + (locationDto.getLatitude() - delta) + "|" + (locationDto.getLongitude() + delta) + "," + (locationDto.getLatitude() + delta))
-                .appendQueryParameter("timestampStart", df.format(from.getTime()))
-                //.appendQueryParameter("source", "sensors_arduino")
-                .appendQueryParameter("pollutant", "pm2.5")
-                .appendQueryParameter("show", "all");
+                .authority("api.opensensemap.org")
+                .appendPath("boxes")
+                .appendPath(locationDto.getSenseBoxId())
+                .appendPath("data")
+                .appendPath(locationDto.getSensorId())
+                .appendQueryParameter("from-date", df.format(from.getTime()));
         String url = builder.build().toString();
         //Log.d("AirPollutantFullWidget", url);
         RequestQueue queue = Volley.newRequestQueue(context);
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url, null, new Response.Listener<JSONObject>() {
+        JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null, new Response.Listener<JSONArray>() {
 
             @Override
-            public void onResponse(JSONObject response) {
+            public void onResponse(JSONArray response) {
                 //Log.d("AirPollutantFullWidget", response.toString());
                 try {
-                    JSONArray data = response.getJSONArray("data");
                     SimpleRegression simpleRegression = new SimpleRegression();
                     SummaryStatistics stats = new SummaryStatistics();
-                    for (int i = 0; i < data.length(); i++) {
-                        simpleRegression.addData(data.getJSONObject(i).getDouble("datetime"), data.getJSONObject(i).getJSONObject("pollutant_q").getDouble("value"));
-                        stats.addValue(data.getJSONObject(i).getJSONObject("pollutant_q").getDouble("value"));
+                    for (int i = 0; i < response.length(); i++) {
+                        Date createdAt = df.parse(response.getJSONObject(i).getString("createdAt"));
+                        simpleRegression.addData(createdAt.getTime(), response.getJSONObject(i).getDouble("value"));
+                        stats.addValue(response.getJSONObject(i).getDouble("value"));
                     }
                     Double slope = simpleRegression.getSlope();
                     double mean = stats.getMean();
                     pollutantConsumer.accept(Pair.create(mean, slope));
-                } catch (JSONException e) {
-                    Log.e("AirPollutantFullWidget", e.getLocalizedMessage(), e);
+                } catch (JSONException | ParseException e) {
+                    Log.e("AirPollutantWidget", e.getLocalizedMessage(), e);
                     log("getPollutant", e, mFirebaseAnalytics);
                     pollutantConsumer.accept(null);
                 }
@@ -97,7 +98,7 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
 
             @Override
             public void onErrorResponse(VolleyError error) {
-                Log.e("AirPollutantFullWidget", error.getLocalizedMessage(), error);
+                Log.e("AirPollutantWidget", error.getLocalizedMessage(), error);
                 log("getPollutant", error, mFirebaseAnalytics);
                 pollutantConsumer.accept(null);
             }
@@ -110,7 +111,7 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
 
     private static void log(String event, Throwable throwable, FirebaseAnalytics mFirebaseAnalytics) {
         Bundle params = new Bundle();
-        params.putString("error", throwable.getLocalizedMessage() != null ? throwable.getLocalizedMessage().substring(Math.min(throwable.getLocalizedMessage().length(), 100)) : "");
+        params.putString("error", throwable.getLocalizedMessage() != null ? throwable.getLocalizedMessage().substring(0, Math.min(throwable.getLocalizedMessage().length() - 1, 100)) : "");
         mFirebaseAnalytics.logEvent(event, params);
         Crashlytics.logException(throwable);
     }
