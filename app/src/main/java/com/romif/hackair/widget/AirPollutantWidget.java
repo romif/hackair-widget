@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.util.Consumer;
 import android.support.v4.util.Pair;
 import android.util.Log;
@@ -34,10 +35,13 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.romif.hackair.widget.AirPollutantWidgetConfigureActivity.PREF_PREFIX_KEY;
 
 public abstract class AirPollutantWidget extends AppWidgetProvider {
+
+    private static final int MAX_NUM_RETRIES = 10;
 
     private static LocationDto getLocationDto(Context context, int appWidgetId) {
         final SharedPreferences prefs = context.getSharedPreferences(AirPollutantWidgetConfigureActivity.PREFS_NAME, 0);
@@ -71,8 +75,10 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
                 .appendQueryParameter("from-date", df.format(from.getTime()));
         String url = builder.build().toString();
         //Log.d("AirPollutantFullWidget", url);
-        RequestQueue queue = Volley.newRequestQueue(context);
-        JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null, new Response.Listener<JSONArray>() {
+        final AtomicInteger numRetries = new AtomicInteger(0);
+        final RequestQueue queue = Volley.newRequestQueue(context);
+
+        final JsonArrayRequest jsonObjectRequest = new JsonArrayRequest(Request.Method.GET, url, null, new Response.Listener<JSONArray>() {
 
             @Override
             public void onResponse(JSONArray response) {
@@ -102,9 +108,24 @@ public abstract class AirPollutantWidget extends AppWidgetProvider {
                 log("getPollutant", error, mFirebaseAnalytics);
                 pollutantConsumer.accept(null);
             }
-        });
+        }) {
+            @Override
+            public void deliverError(VolleyError error) {
+                final JsonArrayRequest request = this;
+                if (numRetries.getAndAdd(1) < MAX_NUM_RETRIES) {
+                    new Handler().postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            queue.add(request);
+                        }
+                    }, 20000);
+                } else {
+                    super.deliverError(error);
+                }
+            }
+        };
 
-        jsonObjectRequest.setRetryPolicy(new DefaultRetryPolicy(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS, 10, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
+        jsonObjectRequest.setRetryPolicy(new DefaultRetryPolicy(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS, MAX_NUM_RETRIES, 1.2f));
 
         queue.add(jsonObjectRequest);
     }
